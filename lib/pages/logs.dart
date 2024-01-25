@@ -28,7 +28,7 @@ class _LogsPageState extends State<LogsPage> {
   }
 
   Stream<dynamic> query() {
-    return Stream.periodic(const Duration(milliseconds: 1000), (_) async {
+    return Stream.periodic(const Duration(milliseconds: 2000), (_) async {
       if (logs.length > maxLines) {
         logs.clear();
       }
@@ -45,15 +45,14 @@ class _LogsPageState extends State<LogsPage> {
             .transform(const Utf8Decoder())
             .listen((event) {
           final obj = jsonDecode(event);
-          final now = DateTime.now();
-          logs.insert(
-              0,
-              ListTile(
-                leading: Text(obj["type"]),
-                title: Text(
-                    "${now.hour}:${now.minute <= 9 ? '0${now.minute.toString()}' : now.minute.toString()}:${now.second <= 9 ? '0${now.second.toString()}' : now.second.toString()}"),
-                subtitle: Text(obj["payload"]),
-              ));
+          final newL = ListTile(
+            leading: Text(obj["type"]),
+            subtitle: Text(obj["payload"]),
+          );
+          if (logs.contains(newL)) {
+            return;
+          }
+          logs.insert(0, newL);
           try {
             setState(() {});
           } catch (e) {
