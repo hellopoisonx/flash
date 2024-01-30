@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../common/net.dart';
 
 class Traffic extends StatefulWidget {
   const Traffic({super.key});
@@ -13,25 +13,53 @@ class Traffic extends StatefulWidget {
 }
 
 class _TrafficState extends State<Traffic> {
-  final Dio dio = Dio(BaseOptions(baseUrl: "http://localhost:9090"));
-  Map<String, int> traffic = {};
-  Stream<dynamic> query() {
-    return Stream.periodic(const Duration(milliseconds: 1000), (_) async {
-      final resp = await dio.get<ResponseBody>("/traffic",
-          options: Options(responseType: ResponseType.stream));
-      StreamTransformer<Uint8List, List<int>> uint8Transformer =
-          StreamTransformer.fromHandlers(handleData: (data, sink) {
-        sink.add(List<int>.from(data));
-      });
-      resp.data?.stream
-          .transform(uint8Transformer)
-          .transform(const Utf8Decoder())
-          .listen((event) {
-        final obj = jsonDecode(event);
-        traffic.addAll(Map<String, int>.from(obj));
-        setState(() {});
-      });
-    });
+  var trafficStreamController = StreamController<Widget>();
+  @override
+  void initState() {
+    super.initState();
+    startGettingTraffic();
+  }
+
+  Future<void> startGettingTraffic() async {
+    try {
+      await for (var t in getTraffic()) {
+        trafficStreamController.add(t);
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Stream<Widget> getTraffic() async* {
+    try {
+      final resp = await Query.dio
+          .get("/traffic", options: Options(responseType: ResponseType.stream));
+      await for (List<int> chunk in resp.data.stream) {
+        final traffic = json.decode(utf8.decode(chunk));
+        final trafficP =
+            parseTraffic(traffic["up"].toDouble(), traffic["down"].toDouble());
+        yield Center(
+          child: Column(
+            children: [
+              SizedBox(
+                child: Text(
+                  "↑ ${trafficP["up"]?.trim()}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+              SizedBox(
+                child: Text("↓ ${trafficP["down"]?.trim()}",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15)),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print(e);
+    }
   }
 
   Map<String, String> parseTraffic(double up, double down) {
@@ -83,19 +111,28 @@ class _TrafficState extends State<Traffic> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-        stream: query(),
+        stream: trafficStreamController.stream,
         builder: ((context, snapshot) {
-          switch (snapshot.connectionState) {
-            default:
-              if (traffic.isEmpty) {
-                return const CircularProgressIndicator();
-              }
-              final t = parseTraffic(
-                  traffic['up']!.toDouble(), traffic['down']!.toDouble());
-              return Column(
-                children: [Text("Up: ${t["up"]}"), Text("Down: ${t["down"]}")],
-              );
+          if (snapshot.hasData) {
+            return snapshot.data!;
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                "Woops ${snapshot.error}",
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          } else {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
           }
         }));
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    trafficStreamController.close();
   }
 }

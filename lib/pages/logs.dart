@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import './log_extend.dart';
+import '../common/net.dart';
 
 class LogsPage extends StatefulWidget {
   const LogsPage({super.key});
@@ -14,60 +14,84 @@ class LogsPage extends StatefulWidget {
 }
 
 class _LogsPageState extends State<LogsPage> {
-  final Dio dio = Dio(BaseOptions(baseUrl: "http://localhost:9090"));
-  final _scrollController = ScrollController();
+  StreamController<Widget> logsController = StreamController<Widget>();
   List<Widget> logs = <ListTile>[const ListTile(leading: Text(""))];
-  StreamSubscription<dynamic>? _streamSubscription;
 
   String logLevel = "info";
   int maxLines = 300;
   @override
   void initState() {
     super.initState();
-    _streamSubscription = query().listen((_) {});
+    startGettingLogs();
   }
 
-  Stream<dynamic> query() {
-    return Stream.periodic(const Duration(milliseconds: 2000), (_) async {
-      if (logs.length > maxLines) {
-        logs.clear();
+  Future<void> startGettingLogs() async {
+    try {
+      await for (var log in getLogsStream()) {
+        logsController.add(log);
       }
-      try {
-        final resp = await dio.get<ResponseBody>("/logs",
-            queryParameters: {"level": logLevel},
-            options: Options(responseType: ResponseType.stream));
-        StreamTransformer<Uint8List, List<int>> uint8Transformer =
-            StreamTransformer.fromHandlers(handleData: (data, sink) {
-          sink.add(List<int>.from(data));
-        });
-        resp.data?.stream
-            .transform(uint8Transformer)
-            .transform(const Utf8Decoder())
-            .listen((event) {
-          final obj = jsonDecode(event);
-          final newL = ListTile(
-            leading: Text(obj["type"]),
-            subtitle: Text(obj["payload"]),
-          );
-          if (logs.contains(newL)) {
-            return;
-          }
-          logs.insert(0, newL);
-          try {
-            setState(() {});
-          } catch (e) {
-            print(e);
-          }
-        });
-      } catch (e) {
-        print(e);
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Stream<Widget> getLogsStream() async* {
+    try {
+      final resp = await Query.dio.get("/logs",
+          queryParameters: {"level": logLevel},
+          options: Options(responseType: ResponseType.stream));
+      int count = 0;
+      await for (List<int> chunk in resp.data.stream) {
+        count++;
+        final log = utf8.decode(chunk);
+        final logObj = json.decode(log);
+        yield ListTile(
+          leading: Text(count.toString()),
+          title: Text(logObj["type"]),
+          subtitle: Text(logObj["payload"]),
+        );
       }
-    });
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      floatingActionButton: ElevatedButton(
+        child: Text(logLevel),
+        onPressed: () async {
+          logLevel = (await showDialogLogLevel())!;
+          setState(() {});
+        },
+      ),
+      body: StreamBuilder<Widget>(
+          stream: logsController.stream,
+          builder: (ctx, snapshot) {
+            if (snapshot.hasData) {
+              logs.insert(0, snapshot.data!);
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: logs.length,
+                itemBuilder: (ctx, idx) {
+                  return logs[idx];
+                },
+              );
+            } else if (snapshot.hasError) {
+              return Text("Woops ${snapshot.error}");
+            } else {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+          }),
+    );
   }
 
   @override
   void dispose() {
-    _streamSubscription?.cancel();
+    logsController.close();
     super.dispose();
   }
 
@@ -76,34 +100,6 @@ class _LogsPageState extends State<LogsPage> {
         context: context,
         builder: (ctx) {
           return const LogLevel();
-        });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder(
-        stream: query(),
-        builder: (context, snapshot) {
-          return Scaffold(
-            floatingActionButton: ElevatedButton(
-              onPressed: () async {
-                final level = await showDialogLogLevel();
-                if (level == null) {
-                  return;
-                } else {
-                  logLevel = level;
-                  setState(() {});
-                }
-              },
-              child: Text(logLevel),
-            ),
-            body: ListView.builder(
-                controller: _scrollController,
-                itemCount: logs.length,
-                itemBuilder: (ctx, idx) {
-                  return logs[idx];
-                }),
-          );
         });
   }
 }
