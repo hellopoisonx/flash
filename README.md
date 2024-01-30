@@ -1,16 +1,14 @@
 # flash
 
-A new Flutter project.
+一个由flutter实现的clash(clash.meta)客户端.
 
-## Getting Started
+## 仅供学习参考使用，不涉及任何政治立场!
 
-This project is a starting point for a Flutter application.
+## 构建
+1. 安装flutter环境
+2. flutter build
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 使用
+1. 自行构建或前往release页面下载预构建包
+2. 确保clash(clash.meta)内核处于运行状态
+3. 运行程序(注意：flash不会索取任何管理员权限，任何操作实际皆有clash内核完成。如遇权限问题请确保为内核设置了正确权限)
