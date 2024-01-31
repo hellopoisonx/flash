@@ -9,14 +9,18 @@ class NodeButton extends StatelessWidget {
       required this.type,
       required this.udp,
       required this.borderColor,
-      required this.onTap});
+      required this.onTap,
+      required this.onPressed,
+      required this.btnIcon});
   final String name;
   final int delay;
   final Color backgroudColor;
   final String type;
   final bool udp;
   final Color borderColor;
-  final void Function() onTap;
+  final void Function()? onTap;
+  final void Function()? onPressed;
+  final Icon btnIcon;
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -31,20 +35,27 @@ class NodeButton extends StatelessWidget {
           children: <Widget>[
             Container(
               alignment: Alignment.topLeft,
-              child: Text(
-                //node name
-                name,
-                maxLines: 1,
-                textAlign: TextAlign.left,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Row(children: [
+                Text(
+                  //node name
+                  name,
+                  maxLines: 1,
+                  textAlign: TextAlign.left,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                IconButton(
+                  onPressed: onPressed,
+                  icon: btnIcon,
+                  alignment: Alignment.topRight,
+                )
+              ]),
             ), // const Padding(padding: EdgeInsets.only(top: 5, bottom: 5)),
             const Spacer(),
             Row(
               children: <Widget>[
                 Text(
                   "$type | ",
-                  style: const TextStyle(color: Colors.grey,fontSize: 9),
+                  style: const TextStyle(color: Colors.grey, fontSize: 9),
                 ),
                 () {
                   return udp
@@ -65,7 +76,11 @@ class NodeButton extends StatelessWidget {
                 Text(
                   delay.toString(),
                   style: TextStyle(
-                      color: delay > 400 ? Colors.orange : Colors.green),
+                      color: delay > 400
+                          ? Colors.orange
+                          : delay < 0
+                              ? Colors.red
+                              : Colors.green),
                 )
               ],
             ),
